@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAT PDF Creator Ultra Pro</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS for rapid styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- jsPDF and html2canvas for PDF Generation -->
+    <!-- jsPDF and html2canvas for high-quality PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
-    <!-- SortableJS for Drag and Drop -->
+    <!-- SortableJS for interactive Drag and Drop reordering -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-    <!-- FontAwesome -->
+    <!-- FontAwesome for standard icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -23,33 +23,41 @@
         
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f8fafc;
+            background-color: #e2e8f0; /* Darker background to contrast with white A4 */
         }
 
         h1, h2, h3 {
             font-family: 'Space Grotesk', sans-serif;
         }
 
-        /* A4 Page Styling for Preview */
+        /* 
+         * PERFECT A4 SCALING:
+         * We strictly use 794px by 1123px which correlates to exactly A4 dimensions at 96 DPI.
+         * This prevents the browser from making fractional millimeter calculations that cause blurry edges.
+         */
         .page-preview {
-            width: 210mm;
-            height: 297mm;
-            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+            width: 794px;
+            height: 1123px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             margin: 0 auto 3rem auto;
             position: relative;
             overflow: hidden;
             flex-shrink: 0;
             background: #ffffff;
             transition: background-color 0.3s ease;
+            box-sizing: border-box;
         }
 
-        /* Watermark Grid Pattern */
+        /* 
+         * WATERMARK SYSTEM:
+         * A flexible grid pattern specifically tuned for diagonal SAT MATH style text.
+         */
         .watermark-overlay {
             position: absolute;
             inset: 0;
             pointer-events: none;
             user-select: none;
-            z-index: 1;
+            z-index: 15; /* High z-index to overlay content */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -61,16 +69,19 @@
             white-space: nowrap;
             text-transform: uppercase;
             text-align: center;
+            font-family: Arial, sans-serif; /* Fallback safe font for rendering */
         }
 
         .watermark-tiled {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(4, 1fr);
-            width: 140%;
-            height: 140%;
-            transform: translate(-15%, -15%);
-            gap: 20px;
+            /* Create enough grid cells to cover the rotated canvas */
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            width: 200%;
+            height: 200%;
+            /* Offset to center the massive grid */
+            transform-origin: center center;
+            gap: 40px;
         }
 
         .watermark-tile-item {
@@ -80,9 +91,13 @@
             font-weight: 800;
             white-space: nowrap;
             text-transform: uppercase;
+            font-family: Arial, sans-serif;
         }
 
-        /* Image Grid Layouts */
+        /* 
+         * CONTENT GRID:
+         * Dynamic layouts for images - FIXED FOR PERFECT ALIGNMENT
+         */
         .content-grid {
             position: relative;
             z-index: 10;
@@ -90,158 +105,226 @@
             height: 100%;
             display: grid;
             transition: all 0.3s ease;
+            box-sizing: border-box;
+            /* Flex-start ensures questions start from the top of their cell, like real tests */
+            align-content: start; 
         }
 
-        /* Margins */
-        .margin-none { padding: 0mm; gap: 0mm; }
-        .margin-small { padding: 10mm; gap: 5mm; }
-        .margin-medium { padding: 20mm; gap: 10mm; }
-        .margin-large { padding: 30mm; gap: 15mm; }
+        /* Margins in pixels relative to 794x1123 canvas */
+        .margin-none { padding: 20px; gap: 20px; } /* Even 'none' needs tiny padding so it doesn't bleed */
+        .margin-small { padding: 40px; gap: 30px; }
+        .margin-medium { padding: 60px; gap: 40px; } /* Adjusted for SAT style */
+        .margin-large { padding: 80px; gap: 60px; }
 
+        /* Grid configurations */
         .grid-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-        .grid-2 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
-        .grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-        .grid-6 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+        
+        /* For 2 items per page (typically arranged vertically) */
+        .grid-2 { 
+            grid-template-columns: 1fr; 
+            grid-template-rows: repeat(2, 1fr); 
+        }
+        
+        /* For 4 items per page (2x2 grid - like the user's example) */
+        .grid-4 { 
+            grid-template-columns: repeat(2, 1fr); 
+            grid-template-rows: repeat(2, 1fr); 
+            /* Add a subtle visual divider line if needed, handled in JS potentially */
+        }
+        
+        /* For 6 items per page */
+        .grid-6 { 
+            grid-template-columns: repeat(2, 1fr); 
+            grid-template-rows: repeat(3, 1fr); 
+        }
 
+        /* Container ensures images don't break layout and align perfectly */
         .img-container {
             width: 100%;
             height: 100%;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            /* TOP-LEFT alignment is crucial for test questions to look organized */
+            align-items: flex-start; 
+            justify-content: flex-start;
             overflow: hidden;
-            border-radius: 6px;
-            background: rgba(241, 245, 249, 0.5);
-            border: 1px dashed rgba(203, 213, 225, 0.6);
             position: relative;
         }
 
         .img-container img {
             max-width: 100%;
-            max-height: 100%;
-            transition: all 0.3s ease;
+            max-height: 100%; /* Ensure it doesn't overflow its cell */
+            transition: transform 0.3s ease;
+            /* Crucial: Prevent image from shrinking smaller than its intrinsic width if possible, 
+               but force it to scale down if it's too big */
+            width: 100%; 
+            height: auto;
         }
 
-        .fit-contain img { object-fit: contain; width: 100%; height: 100%; }
-        .fit-cover img { object-fit: cover; width: 100%; height: 100%; }
+        /* Override alignment if needed based on fit mode */
+        .fit-contain { } /* Default behavior described above is best for SAT */
+        .fit-cover .img-container {
+             align-items: center;
+             justify-content: center;
+        }
+        .fit-cover img { 
+            object-fit: cover; 
+            width: 100%; 
+            height: 100%; 
+        }
+        
+        /* Add a vertical center line for multi-column grids to mimic SAT format */
+        .grid-4::after, .grid-6::after {
+            content: '';
+            position: absolute;
+            top: 5%;
+            bottom: 5%;
+            left: 50%;
+            width: 1px;
+            background-color: #cbd5e1; /* Light gray line */
+            z-index: 5;
+            transform: translateX(-50%);
+            /* Dotted line style common in tests */
+            border-left: 2px dotted #cbd5e1;
+            background: none;
+        }
 
-        /* Rotate classes */
+        /* Rotation Utility Classes */
         .rotate-0 { transform: rotate(0deg); }
         .rotate-90 { transform: rotate(90deg); }
         .rotate-180 { transform: rotate(180deg); }
         .rotate-270 { transform: rotate(270deg); }
 
-        /* Filters */
+        /* Visual Filters */
         .filter-grayscale img { filter: grayscale(100%); }
         .filter-sepia img { filter: sepia(100%); }
         .filter-contrast img { filter: contrast(150%); }
 
-        /* Page Numbers & Headers */
+        /* Meta details */
         .page-meta {
             position: absolute;
             z-index: 12;
-            font-size: 10pt;
+            font-size: 14px; /* Scaled for 794px width */
             color: #64748b;
             font-weight: 500;
             pointer-events: none;
+            font-family: Arial, sans-serif;
         }
-        .page-header-text { top: 8mm; left: 15mm; right: 15mm; border-bottom: 1px solid #e2e8f0; padding-bottom: 2mm; }
-        .page-footer-text { bottom: 8mm; left: 15mm; right: 15mm; border-top: 1px solid #e2e8f0; padding-top: 2mm; }
+        .page-header-text { top: 30px; left: 60px; right: 60px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .page-footer-text { bottom: 30px; left: 60px; right: 60px; border-top: 2px solid #e2e8f0; padding-top: 10px; }
 
-        /* Loader Animation */
+        /* Spinner */
         .loader {
             border: 4px solid rgba(255, 255, 255, 0.1);
             border-top: 4px solid #3b82f6;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Ensure perfect scaling area */
+        #workspace-container {
+            transform-origin: top center;
+            transition: transform 0.1s ease-out;
+            padding-bottom: 100px; /* buffer */
+        }
+        
+        /* Off-screen rendering container (hidden from user view) */
+        #render-container {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            width: 794px; /* Strict A4 Width */
+        }
     </style>
 </head>
 <body class="h-screen flex overflow-hidden text-slate-800">
 
-    <!-- Sidebar Settings -->
-    <aside class="w-96 bg-white border-r border-slate-200 flex flex-col h-full shadow-xl relative z-20">
-        <!-- Logo Header -->
-        <div class="p-5 border-b border-slate-100 bg-gradient-to-r from-slate-900 to-indigo-950 text-white">
-            <h1 class="text-2xl font-bold flex items-center gap-2">
-                <span class="p-2 bg-indigo-500 rounded-lg text-white text-sm"><i class="fa-solid fa-layer-group"></i></span>
+    <!-- Render Container for Off-Screen Cloning -->
+    <div id="render-container"></div>
+
+    <!-- Sidebar Control Panel -->
+    <aside class="w-96 bg-white border-r border-slate-200 flex flex-col h-full shadow-[5px_0_15px_-5px_rgba(0,0,0,0.1)] relative z-20">
+        
+        <!-- App Branding -->
+        <div class="p-5 border-b border-slate-100 bg-slate-900 text-white">
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-sm shadow-inner shadow-blue-400/50">
+                    <i class="fa-solid fa-file-pdf"></i>
+                </div>
                 SAT PDF Ultra
             </h1>
-            <p class="text-xs text-indigo-200 mt-1">Ko'p funksiyali mukammal PDF studiyasi</p>
+            <p class="text-xs text-slate-400 mt-2 font-medium">Professional A4 Export & Off-Screen Render</p>
         </div>
 
-        <!-- Scrollable settings -->
-        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+        <!-- Scrollable settings form -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
             
-            <!-- 1. Upload & List -->
             <section class="space-y-3">
                 <div class="flex justify-between items-center">
-                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">1. Rasmlar yuklash</h2>
-                    <span id="image-count" class="text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-full">0 ta</span>
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">1. Rasmlar (Images)</h2>
+                    <span id="image-count" class="text-xs font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full shadow-sm">0 ta</span>
                 </div>
                 
-                <div class="border-2 border-dashed border-indigo-200 rounded-xl p-5 text-center hover:border-indigo-500 hover:bg-slate-50 transition cursor-pointer relative group" onclick="document.getElementById('file-input').click()">
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/50 transition cursor-pointer relative group" onclick="document.getElementById('file-input').click()">
                     <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFiles(event)">
-                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-500 group-hover:scale-110 transition duration-300 mb-2"></i>
-                    <p class="text-xs font-semibold text-slate-700">Yuklash uchun shu yerga bosing</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">Yoki rasmlarni shu yerga sudrab keling</p>
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-slate-100 group-hover:scale-110 transition duration-300">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl text-blue-500"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-700">Yuklash uchun bosing</p>
+                    <p class="text-[11px] text-slate-400 mt-1">Yoki fayllarni shu yerga tashlang</p>
                 </div>
 
-                <!-- Live Drag List -->
-                <div id="image-management-section" class="hidden space-y-2">
-                    <div id="image-list" class="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                        <!-- Dynamic JS content -->
+                <!-- Sortable List -->
+                <div id="image-management-section" class="hidden space-y-2 mt-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <div id="image-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        <!-- Items injected here by JS -->
                     </div>
-                    <button onclick="clearAllImages()" class="w-full text-center text-xs text-red-500 hover:text-red-700 font-semibold py-1 transition">
+                    <button onclick="clearAllImages()" class="w-full text-center text-xs text-red-500 hover:text-red-700 hover:bg-red-50 font-semibold py-2 rounded-lg transition mt-2 border border-transparent hover:border-red-100">
                         <i class="fa-solid fa-trash-can mr-1"></i> Barchasini o'chirish
                     </button>
                 </div>
             </section>
 
-            <!-- 2. Grid Layout & Margins -->
             <section class="space-y-3">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">2. Varaq & Katak Dizayni</h2>
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">2. Varaq Dizayni (Layout)</h2>
                 
-                <!-- Layout options -->
-                <div>
-                    <label class="text-xs font-medium text-slate-500 block mb-1.5">Bir sahifadagi rasmlar soni</label>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                    <label class="text-xs font-semibold text-slate-600 block mb-2">Rasmlar soni (1 ta varaqda)</label>
                     <div class="grid grid-cols-4 gap-2">
-                        <button class="layout-btn border border-indigo-500 bg-indigo-50 text-indigo-700 rounded-lg py-1.5 text-xs font-bold transition flex flex-col items-center gap-0.5" data-layout="1">
-                            <i class="fa-regular fa-square"></i> 1 ta
+                        <button class="layout-btn border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-lg py-2 text-xs font-bold transition flex flex-col items-center gap-1 shadow-sm" data-layout="1">
+                            <i class="fa-regular fa-square text-lg"></i> 1
                         </button>
-                        <button class="layout-btn border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-lg py-1.5 text-xs font-bold transition flex flex-col items-center gap-0.5" data-layout="2">
-                            <i class="fa-solid fa-table-cells"></i> 2 ta
+                        <button class="layout-btn border-2 border-slate-100 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg py-2 text-xs font-bold transition flex flex-col items-center gap-1" data-layout="2">
+                            <i class="fa-solid fa-table-cells text-lg"></i> 2
                         </button>
-                        <button class="layout-btn border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-lg py-1.5 text-xs font-bold transition flex flex-col items-center gap-0.5" data-layout="4">
-                            <i class="fa-solid fa-table-cells-large"></i> 4 ta
+                        <button class="layout-btn border-2 border-slate-100 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg py-2 text-xs font-bold transition flex flex-col items-center gap-1" data-layout="4">
+                            <i class="fa-solid fa-table-cells-large text-lg"></i> 4
                         </button>
-                        <button class="layout-btn border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-lg py-1.5 text-xs font-bold transition flex flex-col items-center gap-0.5" data-layout="6">
-                            <i class="fa-solid fa-border-all"></i> 6 ta
+                        <button class="layout-btn border-2 border-slate-100 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg py-2 text-xs font-bold transition flex flex-col items-center gap-1" data-layout="6">
+                            <i class="fa-solid fa-border-all text-lg"></i> 6
                         </button>
                     </div>
                 </div>
 
-                <!-- Margin Options -->
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="text-xs font-medium text-slate-500 block mb-1">Chetki hoshiya</label>
-                        <select id="margin-select" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                        <label class="text-[11px] font-semibold text-slate-500 block mb-1.5">Chetki hoshiya</label>
+                        <select id="margin-select" class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700">
                             <option value="margin-none">Hoshiyasiz</option>
                             <option value="margin-small">Kichik</option>
                             <option value="margin-medium" selected>O'rtacha</option>
                             <option value="margin-large">Katta</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="text-xs font-medium text-slate-500 block mb-1">Varaq rangi</label>
-                        <select id="bg-color-select" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="#ffffff">Oq</option>
+                    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                        <label class="text-[11px] font-semibold text-slate-500 block mb-1.5">Varaq rangi</label>
+                        <select id="bg-color-select" class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700">
+                            <option value="#ffffff">Oq (Standart)</option>
                             <option value="#f8fafc">Och Havorang</option>
                             <option value="#fcfcf7">Krem rang</option>
                             <option value="#f1f5f9">Kulrang</option>
@@ -250,299 +333,306 @@
                 </div>
             </section>
 
-            <!-- 3. Advanced Watermark -->
             <section class="space-y-3">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">3. Aqlli Suv Belgisi (Watermark)</h2>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-3">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    3. Suv Belgisi <span class="bg-amber-100 text-amber-700 text-[9px] px-1.5 rounded-sm">PRO</span>
+                </h2>
+                
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
                     
                     <div>
-                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">Suv belgisi matni</label>
-                        <input type="text" id="watermark-text" value="SAT" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-bold uppercase">
+                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">Matn (Watermark Text)</label>
+                        <!-- Defaulted to SAT MATH per user request -->
+                        <input type="text" id="watermark-text" value="SAT MATH" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold uppercase bg-slate-50 text-slate-800">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="text-[11px] font-semibold text-slate-600 block mb-1">Rang tanlash</label>
-                            <input type="color" id="watermark-color" value="#000000" class="w-full h-8 p-1 border border-slate-200 rounded-lg bg-white cursor-pointer">
+                            <label class="text-[11px] font-semibold text-slate-600 block mb-1">Rang</label>
+                            <div class="flex items-center gap-2 border border-slate-200 rounded-lg bg-slate-50 p-1">
+                                <input type="color" id="watermark-color" value="#64748b" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                                <span class="text-[10px] font-mono text-slate-500" id="color-hex">#64748b</span>
+                            </div>
                         </div>
                         <div>
-                            <label class="text-[11px] font-semibold text-slate-600 block mb-1">Joylashuv turi</label>
-                            <select id="watermark-mode" class="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                <option value="single">Faqat Markazda</option>
-                                <option value="tiled" selected>To'liq takrorlanuvchi</option>
+                            <label class="text-[11px] font-semibold text-slate-600 block mb-1">Turi</label>
+                            <select id="watermark-mode" class="w-full h-[34px] px-2 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700">
+                                <option value="single">Markaziy</option>
+                                <option value="tiled" selected>Diagonal (Grid)</option>
                             </select>
                         </div>
                     </div>
 
-                    <div>
-                        <div class="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                            <span>Burchagi (Aylantirish)</span>
-                            <span id="wm-rotate-val">-45°</span>
+                    <!-- Custom Slider Group -->
+                    <div class="space-y-3 pt-1">
+                        <!-- Rotation -->
+                        <div class="group">
+                            <div class="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                                <span>Burchak (Rotation)</span>
+                                <span id="wm-rotate-val" class="text-blue-600 bg-blue-50 px-1.5 rounded">-45°</span>
+                            </div>
+                            <input type="range" id="watermark-rotate" min="-90" max="90" value="-45" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
                         </div>
-                        <input type="range" id="watermark-rotate" min="-90" max="90" value="-45" class="w-full accent-indigo-600">
-                    </div>
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <div class="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                                <span>O'lcham</span>
-                                <span id="wm-size-val">50px</span>
+                        <!-- Size -->
+                        <div class="group">
+                            <div class="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                                <span>O'lcham (Size)</span>
+                                <span id="wm-size-val" class="text-blue-600 bg-blue-50 px-1.5 rounded">60px</span>
                             </div>
-                            <input type="range" id="watermark-size" min="20" max="150" value="50" class="w-full accent-indigo-600">
+                            <!-- Min max adjusted for 794px absolute canvas -->
+                            <input type="range" id="watermark-size" min="20" max="200" value="60" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
                         </div>
-                        <div>
-                            <div class="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                                <span>Shaffoflik</span>
-                                <span id="wm-op-val">0.05</span>
+                        
+                        <!-- Opacity -->
+                        <div class="group">
+                            <div class="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                                <span>Shaffoflik (Opacity)</span>
+                                <span id="wm-op-val" class="text-blue-600 bg-blue-50 px-1.5 rounded">0.07</span>
                             </div>
-                            <input type="range" id="watermark-opacity" min="0.01" max="0.3" step="0.01" value="0.05" class="w-full accent-indigo-600">
+                            <input type="range" id="watermark-opacity" min="0.01" max="0.5" step="0.01" value="0.07" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
                         </div>
                     </div>
 
                 </div>
             </section>
 
-            <!-- 4. Header, Footer & Page Numbers -->
             <section class="space-y-3">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">4. Sahifa Ma'lumotlari</h2>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-3">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">4. Tasvir Nazorati</h2>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm grid grid-cols-2 gap-3">
                     <div>
-                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">Yuqori Sarlavha (Header)</label>
-                        <input type="text" id="header-text" placeholder="Masalan: SAT Matematika Imtihoni" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs">
+                        <label class="text-[11px] font-semibold text-slate-500 block mb-1">Proporsiya</label>
+                        <select id="fit-mode-select" class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-[11px] bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700">
+                            <!-- Adjusted options for better explanation -->
+                            <option value="fit-contain" selected>Test formati (Yuqoridan tekislash)</option>
+                            <option value="fit-cover">To'ldirish (Markazlash)</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">Pastki Izoh (Footer)</label>
-                        <input type="text" id="footer-text" placeholder="Masalan: Barcha huquqlar himoyalangan" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs">
-                    </div>
-                    <div class="flex items-center justify-between pt-1">
-                        <label class="text-[11px] font-semibold text-slate-600 cursor-pointer" for="show-page-numbers">Sahifa raqamlarini ko'rsatish</label>
-                        <input type="checkbox" id="show-page-numbers" checked class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 accent-indigo-600">
-                    </div>
-                </div>
-            </section>
-
-            <!-- 5. Filters & Display Settings -->
-            <section class="space-y-3">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">5. Vizual Filtrlar</h2>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="text-xs font-medium text-slate-500 block mb-1">Rang filtri</label>
-                        <select id="image-filter" class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="none">Oddiy (Asli)</option>
+                        <label class="text-[11px] font-semibold text-slate-500 block mb-1">Filtr</label>
+                        <select id="image-filter" class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-[11px] bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700">
+                            <option value="none">Asl Rang</option>
                             <option value="filter-grayscale">Oq-qora</option>
-                            <option value="filter-sepia">Sepiya (Eski)</option>
-                            <option value="filter-contrast">Kontrastli</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-xs font-medium text-slate-500 block mb-1">Rasm Joylashuvi</label>
-                        <select id="fit-mode-select" class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="fit-contain">Contain (To'liq varaqda)</option>
-                            <option value="fit-cover">Cover (To'ldirish)</option>
                         </select>
                     </div>
                 </div>
             </section>
-
+            
+            <div class="pb-10"></div> <!-- Padding for scroll -->
         </div>
 
-        <!-- Generate Button -->
-        <div class="p-4 border-t border-slate-100 bg-slate-50">
-            <button id="generate-btn" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-indigo-200 transition duration-300 flex justify-center items-center gap-2 text-md disabled:opacity-40 disabled:cursor-not-allowed" disabled onclick="generatePDF()">
-                <i class="fa-solid fa-file-pdf text-lg"></i> PDF YUKLAB OLISH
+        <!-- Export Button Fixed at bottom of sidebar -->
+        <div class="p-4 border-t border-slate-200 bg-white shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.05)] z-30">
+            <button id="generate-btn" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all duration-300 flex justify-center items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed group" disabled onclick="generatePDF()">
+                <i class="fa-solid fa-file-export text-lg group-hover:-translate-y-0.5 transition-transform"></i> 
+                <span>YUKLAB OLISH (PDF)</span>
             </button>
         </div>
     </aside>
 
-    <!-- Main Workspace (Preview) -->
-    <main class="flex-1 bg-slate-100 overflow-y-auto relative flex flex-col">
+    <!-- Main Workspace (Interactive Visualizer) -->
+    <main class="flex-1 overflow-hidden relative flex flex-col bg-[#cbd5e1] shadow-inner">
         
-        <!-- Top Workspace Bar -->
-        <div class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-            <div class="flex items-center gap-2">
-                <span class="inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-xs font-bold text-slate-600">Jonli Ko'rinish (Interactive Preview)</span>
+        <!-- Top Toolbar -->
+        <div class="bg-white/80 backdrop-blur-md border-b border-slate-300 px-6 py-3 flex items-center justify-between z-10 shadow-sm relative">
+            <div class="flex items-center gap-3">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span class="text-xs font-bold text-slate-700 tracking-wide">JONLI KO'RINISh</span>
             </div>
             
-            <!-- Zoom Controller -->
-            <div class="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg">
-                <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
-                <span class="text-xs font-semibold text-slate-500">Kattalik:</span>
-                <input type="range" id="preview-zoom" min="20" max="100" value="50" class="w-24 accent-slate-600 cursor-pointer">
-                <span id="zoom-value" class="text-xs font-bold text-slate-600 min-w-[32px]">50%</span>
+            <!-- Universal Zoom Controller (Visual only, doesn't affect PDF output) -->
+            <div class="flex items-center gap-3 bg-slate-100/80 border border-slate-200 px-4 py-1.5 rounded-full shadow-inner">
+                <i class="fa-solid fa-magnifying-glass text-slate-400 text-[10px]"></i>
+                <input type="range" id="preview-zoom" min="20" max="150" value="60" class="w-32 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-slate-700">
+                <span id="zoom-value" class="text-xs font-bold text-slate-700 min-w-[36px] text-right font-mono">60%</span>
             </div>
         </div>
 
-        <!-- Loading Overlay -->
-        <div id="loading-overlay" class="fixed inset-0 bg-slate-950/80 z-50 hidden flex-col justify-center items-center text-white backdrop-blur-sm">
-            <div class="loader mb-4"></div>
-            <h2 class="text-xl font-bold tracking-wider mb-1">MUKAMMAL PDF YARATILMOQDA</h2>
-            <p class="text-xs text-slate-400">Sahifalar va yuqori sifatli vizual dizayn qayta ishlanmoqda...</p>
+        <!-- Fullscreen Loading Overlay during Off-Screen Render -->
+        <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 z-50 hidden flex-col justify-center items-center text-white backdrop-blur-sm transition-all duration-300">
+            <div class="loader mb-6"></div>
+            <h2 class="text-2xl font-bold tracking-widest mb-2 font-['Space_Grotesk'] text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">PDF QAYTA ISHLANMOQDA</h2>
+            <p class="text-sm text-slate-300 max-w-md text-center">Tizim sahifalarni orqa fonda 100% piksel-mukammal formatda (A4) va buzilishlarsiz klonlamoqda...</p>
+            
+            <!-- Progress indication -->
+            <div class="w-64 bg-slate-800 rounded-full h-1.5 mt-8 overflow-hidden">
+                <div id="progress-bar" class="bg-blue-500 h-1.5 rounded-full w-0 transition-all duration-200"></div>
+            </div>
+            <p id="progress-text" class="text-[10px] text-slate-500 mt-2 font-mono uppercase tracking-wider">Boshlanmoqda...</p>
         </div>
 
-        <!-- Central Workspace -->
-        <div class="flex-1 overflow-auto p-8 flex justify-center items-start" id="scroll-wrapper">
-            <div id="workspace-container">
-                <!-- Pages will be rendered here dynamically -->
-                <div class="text-center text-slate-400 my-auto py-24" id="empty-state">
-                    <div class="w-24 h-24 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-6">
-                        <i class="fa-regular fa-image text-4xl text-indigo-500"></i>
+        <!-- Central Zoomable Workspace -->
+        <div class="flex-1 overflow-auto p-8 flex justify-center items-start custom-scrollbar" id="scroll-wrapper">
+            
+            <!-- The visual container holding the scaled preview pages -->
+            <div id="workspace-container" class="flex flex-col gap-8 pb-16">
+                <!-- Empty State -->
+                <div class="text-center my-auto py-32" id="empty-state">
+                    <div class="w-28 h-28 bg-white/50 border-2 border-dashed border-slate-400 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm">
+                        <i class="fa-regular fa-image text-5xl text-slate-400"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-slate-700">Hozircha rasmlar yuklanmadi</h2>
-                    <p class="text-sm mt-1 max-w-sm mx-auto text-slate-400">Chap tarafdagi yuklash bo'limi orqali rasm kiriting va ularni xohlagancha sozlang.</p>
+                    <h2 class="text-2xl font-bold text-slate-600 mb-2 font-['Space_Grotesk']">Ish stoli bo'sh</h2>
+                    <p class="text-sm max-w-sm mx-auto text-slate-500 leading-relaxed">Chap tomondagi panel orqali rasm yuklang. Rasmlar avtomatik tarzda A4 formatiga moslashtiriladi.</p>
                 </div>
             </div>
+
         </div>
     </main>
 
     <script>
-        // App State
+        /**
+         * APPLICATION STATE
+         */
         let images = [];
         let currentLayout = 1;
+        
+        // Page Style State
         let pageMargin = 'margin-medium';
         let pageBgColor = '#ffffff';
         let currentFilter = 'none';
         let fitMode = 'fit-contain';
         
+        // Advanced Watermark Settings 
+        // Initialized with requested defaults (SAT MATH, -45 deg, 0.07 opacity)
         let watermarkSettings = {
-            text: "SAT",
-            color: "#000000",
+            text: "SAT MATH",
+            color: "#64748b",
             mode: "tiled",
             rotate: -45,
-            size: 50,
-            opacity: 0.05
+            size: 60,
+            opacity: 0.05 // slightly lighter opacity as requested by image reference
         };
 
-        let headerText = '';
-        let footerText = '';
-        let showPageNumbers = true;
-        let zoomLevel = 50;
+        // Workspace Zoom Level
+        let zoomLevel = 60; // Start at 60% so full A4 height is roughly visible on standard screens
 
-        // Dom Elements
+        /**
+         * DOM ELEMENTS
+         */
         const fileInput = document.getElementById('file-input');
         const imageList = document.getElementById('image-list');
         const imageManagementSection = document.getElementById('image-management-section');
         const imageCount = document.getElementById('image-count');
         const workspaceContainer = document.getElementById('workspace-container');
+        const renderContainer = document.getElementById('render-container');
         const emptyState = document.getElementById('empty-state');
         const generateBtn = document.getElementById('generate-btn');
         const layoutBtns = document.querySelectorAll('.layout-btn');
         const previewZoom = document.getElementById('preview-zoom');
         const zoomValue = document.getElementById('zoom-value');
 
-        // Setup Drag & Drop Sortable List
+        /**
+         * DRAG AND DROP SETUP (SortableJS)
+         */
         new Sortable(imageList, {
-            animation: 200,
-            ghostClass: 'bg-indigo-50',
+            animation: 150,
+            ghostClass: 'opacity-50',
             handle: '.drag-handle',
             onEnd: function (evt) {
+                // Reorder internal array
                 const item = images.splice(evt.oldIndex, 1)[0];
                 images.splice(evt.newIndex, 0, item);
+                // Re-render UI
                 renderPreview();
             },
         });
 
-        // Layout click events
+
+        /**
+         * EVENT LISTENERS FOR CONTROLS
+         */
+        
+        // Grid Layout Selection
         layoutBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 layoutBtns.forEach(b => {
-                    b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
-                    b.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+                    b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                    b.classList.add('border-slate-100', 'bg-slate-50', 'text-slate-600');
                 });
                 const currentBtn = e.currentTarget;
-                currentBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
-                currentBtn.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
+                currentBtn.classList.remove('border-slate-100', 'bg-slate-50', 'text-slate-600');
+                currentBtn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
                 
                 currentLayout = parseInt(currentBtn.dataset.layout);
                 renderPreview();
             });
         });
 
-        // Real-time Zoom Setup
+        // Zoom Control (Affects visual workspace only, not output)
         previewZoom.addEventListener('input', (e) => {
-            zoomLevel = e.target.value;
+            zoomLevel = parseInt(e.target.value);
             zoomValue.textContent = zoomLevel + '%';
             applyZoom();
         });
 
         function applyZoom() {
+            // Use CSS transform scale on the container holding the pages
             workspaceContainer.style.transform = `scale(${zoomLevel / 100})`;
-            workspaceContainer.style.transformOrigin = 'top center';
         }
 
-        // Live settings list update
-        document.getElementById('margin-select').addEventListener('change', (e) => {
-            pageMargin = e.target.value;
-            renderPreview();
+        // Base Page Settings
+        document.getElementById('margin-select').addEventListener('change', (e) => { pageMargin = e.target.value; renderPreview(); });
+        document.getElementById('bg-color-select').addEventListener('change', (e) => { pageBgColor = e.target.value; renderPreview(); });
+        document.getElementById('image-filter').addEventListener('change', (e) => { currentFilter = e.target.value; renderPreview(); });
+        document.getElementById('fit-mode-select').addEventListener('change', (e) => { fitMode = e.target.value; renderPreview(); });
+
+        // Watermark Controls
+        document.getElementById('watermark-text').addEventListener('input', (e) => { 
+            watermarkSettings.text = e.target.value || "SAT MATH"; 
+            renderPreview(); 
+        });
+        
+        document.getElementById('watermark-color').addEventListener('input', (e) => { 
+            watermarkSettings.color = e.target.value; 
+            document.getElementById('color-hex').textContent = e.target.value;
+            renderPreview(); 
+        });
+        
+        document.getElementById('watermark-mode').addEventListener('change', (e) => { 
+            watermarkSettings.mode = e.target.value; 
+            renderPreview(); 
+        });
+        
+        document.getElementById('watermark-rotate').addEventListener('input', (e) => { 
+            watermarkSettings.rotate = e.target.value; 
+            document.getElementById('wm-rotate-val').textContent = e.target.value + '°'; 
+            renderPreview(); 
+        });
+        
+        document.getElementById('watermark-size').addEventListener('input', (e) => { 
+            watermarkSettings.size = e.target.value; 
+            document.getElementById('wm-size-val').textContent = e.target.value + 'px'; 
+            renderPreview(); 
+        });
+        
+        document.getElementById('watermark-opacity').addEventListener('input', (e) => { 
+            watermarkSettings.opacity = e.target.value; 
+            document.getElementById('wm-op-val').textContent = e.target.value; 
+            renderPreview(); 
         });
 
-        document.getElementById('bg-color-select').addEventListener('change', (e) => {
-            pageBgColor = e.target.value;
-            renderPreview();
-        });
 
-        document.getElementById('watermark-text').addEventListener('input', (e) => {
-            watermarkSettings.text = e.target.value || "SAT";
-            renderPreview();
+        /**
+         * DRAG & DROP FILE HANDLING ON DOCUMENT
+         */
+        const mainDropZone = document.querySelector('main');
+        
+        mainDropZone.addEventListener('dragover', (e) => { 
+            e.preventDefault(); 
+            mainDropZone.classList.add('bg-blue-100'); // Visual feedback
         });
-
-        document.getElementById('watermark-color').addEventListener('input', (e) => {
-            watermarkSettings.color = e.target.value;
-            renderPreview();
+        
+        mainDropZone.addEventListener('dragleave', (e) => { 
+            e.preventDefault(); 
+            mainDropZone.classList.remove('bg-blue-100');
         });
-
-        document.getElementById('watermark-mode').addEventListener('change', (e) => {
-            watermarkSettings.mode = e.target.value;
-            renderPreview();
-        });
-
-        document.getElementById('watermark-rotate').addEventListener('input', (e) => {
-            watermarkSettings.rotate = e.target.value;
-            document.getElementById('wm-rotate-val').textContent = e.target.value + '°';
-            renderPreview();
-        });
-
-        document.getElementById('watermark-size').addEventListener('input', (e) => {
-            watermarkSettings.size = e.target.value;
-            document.getElementById('wm-size-val').textContent = e.target.value + 'px';
-            renderPreview();
-        });
-
-        document.getElementById('watermark-opacity').addEventListener('input', (e) => {
-            watermarkSettings.opacity = e.target.value;
-            document.getElementById('wm-op-val').textContent = e.target.value;
-            renderPreview();
-        });
-
-        document.getElementById('header-text').addEventListener('input', (e) => {
-            headerText = e.target.value;
-            renderPreview();
-        });
-
-        document.getElementById('footer-text').addEventListener('input', (e) => {
-            footerText = e.target.value;
-            renderPreview();
-        });
-
-        document.getElementById('show-page-numbers').addEventListener('change', (e) => {
-            showPageNumbers = e.target.checked;
-            renderPreview();
-        });
-
-        document.getElementById('image-filter').addEventListener('change', (e) => {
-            currentFilter = e.target.value;
-            renderPreview();
-        });
-
-        document.getElementById('fit-mode-select').addEventListener('change', (e) => {
-            fitMode = e.target.value;
-            renderPreview();
-        });
-
-        // Dragover/Drop handlers on document for direct drop integration
-        window.addEventListener('dragover', (e) => { e.preventDefault(); });
-        window.addEventListener('drop', (e) => {
+        
+        mainDropZone.addEventListener('drop', (e) => {
             e.preventDefault();
+            mainDropZone.classList.remove('bg-blue-100');
             if (e.dataTransfer.files.length > 0) {
                 processFiles(e.dataTransfer.files);
             }
@@ -553,58 +643,73 @@
             if (files && files.length > 0) {
                 processFiles(files);
             }
-            event.target.value = ''; // Reset input
+            event.target.value = ''; // Reset input to allow re-uploading same file
         }
 
-        // Processing upload files
         function processFiles(files) {
-            Array.from(files).forEach(file => {
-                if (!file.type.startsWith('image/')) return;
+            const newFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            
+            if(newFiles.length === 0) return;
+
+            let loadedCount = 0;
+            
+            newFiles.forEach(file => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     images.push({
-                        id: 'img_' + Math.random().toString(36).substr(2, 9),
+                        id: 'img_' + Date.now() + Math.floor(Math.random()*1000),
                         name: file.name,
                         src: e.target.result,
-                        rotation: 0 // Individual rotation in degrees
+                        rotation: 0 // Individual rotation state
                     });
-                    updateSidebarList();
-                    renderPreview();
+                    
+                    loadedCount++;
+                    // Only update UI once all files in this batch are read
+                    if(loadedCount === newFiles.length) {
+                        updateSidebarList();
+                        renderPreview();
+                    }
                 };
                 reader.readAsDataURL(file);
             });
         }
 
-        // Updating sidebar controller
         function updateSidebarList() {
             imageList.innerHTML = '';
+            
             if (images.length > 0) {
                 imageManagementSection.classList.remove('hidden');
                 emptyState.style.display = 'none';
                 generateBtn.disabled = false;
+                generateBtn.classList.remove('bg-slate-900');
+                generateBtn.classList.add('bg-blue-600');
             } else {
                 imageManagementSection.classList.add('hidden');
                 emptyState.style.display = 'block';
                 generateBtn.disabled = true;
+                generateBtn.classList.add('bg-slate-900');
+                generateBtn.classList.remove('bg-blue-600');
             }
 
             imageCount.textContent = `${images.length} ta`;
 
             images.forEach((img, index) => {
                 const item = document.createElement('div');
-                item.className = 'flex items-center justify-between bg-slate-50 border border-slate-200/80 p-1.5 rounded-lg hover:border-slate-300 transition';
+                item.className = 'flex items-center justify-between bg-white border border-slate-200 p-2 rounded-lg hover:border-blue-300 transition group';
                 item.innerHTML = `
                     <div class="flex items-center gap-2 overflow-hidden flex-1">
-                        <i class="fa-solid fa-grip-vertical text-slate-400 drag-handle cursor-grab px-1"></i>
-                        <img src="${img.src}" class="w-7 h-7 object-cover rounded border border-slate-200" style="transform: rotate(${img.rotation}deg)">
-                        <span class="text-[11px] font-semibold text-slate-700 truncate max-w-[120px]">${img.name}</span>
+                        <i class="fa-solid fa-grip-vertical text-slate-300 drag-handle cursor-grab px-1 hover:text-blue-500"></i>
+                        <div class="w-8 h-8 rounded border border-slate-200 overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                            <img src="${img.src}" class="max-w-full max-h-full object-cover" style="transform: rotate(${img.rotation}deg)">
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-600 truncate max-w-[140px]" title="${img.name}">${img.name}</span>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <button onclick="rotateImage(${index})" title="Aylantirish" class="text-slate-500 hover:text-indigo-600 hover:bg-white p-1 rounded transition text-xs">
-                            <i class="fa-solid fa-rotate-right"></i>
+                    <div class="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                        <button onclick="rotateImage(${index})" title="90° Aylantirish" class="text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 w-6 h-6 flex items-center justify-center rounded transition">
+                            <i class="fa-solid fa-rotate-right text-[10px]"></i>
                         </button>
-                        <button onclick="removeImage(${index})" title="O'chirish" class="text-slate-400 hover:text-red-600 hover:bg-white p-1 rounded transition text-xs">
-                            <i class="fa-solid fa-xmark"></i>
+                        <button onclick="removeImage(${index})" title="O'chirish" class="text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 w-6 h-6 flex items-center justify-center rounded transition">
+                            <i class="fa-solid fa-xmark text-[10px]"></i>
                         </button>
                     </div>
                 `;
@@ -612,207 +717,246 @@
             });
         }
 
-        // Rotate single image in state
         function rotateImage(index) {
             images[index].rotation = (images[index].rotation + 90) % 360;
             updateSidebarList();
             renderPreview();
         }
 
-        // Delete single image from state
         function removeImage(index) {
             images.splice(index, 1);
             updateSidebarList();
             renderPreview();
         }
 
-        // Delete all images
         function clearAllImages() {
-            images = [];
-            updateSidebarList();
-            renderPreview();
+            if(confirm("Barcha rasmlarni o'chirishni xohlaysizmi?")) {
+                images = [];
+                updateSidebarList();
+                renderPreview();
+            }
         }
 
-        // Main Render Loop
+
+        /**
+         * DOM CONSTRUCTION FOR A SINGLE PAGE
+         * This function returns a fully styled HTML element representing one A4 page.
+         * We use this to build both the visual preview AND the off-screen clones.
+         */
+        function createPageElement(chunk, pageIndex, totalPages) {
+            const page = document.createElement('div');
+            page.className = 'page-preview';
+            page.style.backgroundColor = pageBgColor;
+
+            // --- WATERMARK OVERLAY ---
+            const watermarkOverlay = document.createElement('div');
+            watermarkOverlay.className = 'watermark-overlay';
+            
+            // Convert Hex to RGBA for watermark opacity
+            const hexColor = watermarkSettings.color;
+            const r = parseInt(hexColor.slice(1, 3), 16);
+            const g = parseInt(hexColor.slice(3, 5), 16);
+            const b = parseInt(hexColor.slice(5, 7), 16);
+            const rgbaColor = `rgba(${r}, ${g}, ${b}, ${watermarkSettings.opacity})`;
+
+            if (watermarkSettings.mode === 'single') {
+                const singleWm = document.createElement('div');
+                singleWm.className = 'watermark-single';
+                singleWm.textContent = watermarkSettings.text;
+                // Double size for center single
+                singleWm.style.fontSize = `${watermarkSettings.size * 2}px`;
+                singleWm.style.color = rgbaColor;
+                singleWm.style.transform = `rotate(${watermarkSettings.rotate}deg)`;
+                watermarkOverlay.appendChild(singleWm);
+            } else {
+                // Tiled/Diagonal Mode (Like SAT MATH reference)
+                const tileGrid = document.createElement('div');
+                tileGrid.className = 'watermark-tiled';
+                // Apply rotation to the whole grid wrapper for smooth diagonal lines
+                tileGrid.style.transform = `rotate(${watermarkSettings.rotate}deg)`;
+                
+                // 24 cells (4x6 grid) defined in CSS to ensure it covers corners when rotated
+                for (let t = 0; t < 24; t++) {
+                    const tileItem = document.createElement('div');
+                    tileItem.className = 'watermark-tile-item';
+                    tileItem.textContent = watermarkSettings.text;
+                    tileItem.style.fontSize = `${watermarkSettings.size}px`;
+                    tileItem.style.color = rgbaColor;
+                    tileGrid.appendChild(tileItem);
+                }
+                watermarkOverlay.appendChild(tileGrid);
+            }
+            page.appendChild(watermarkOverlay);
+
+            // --- CONTENT GRID ---
+            const grid = document.createElement('div');
+            grid.className = `content-grid grid-${currentLayout} ${pageMargin} ${fitMode}`;
+            
+            if (currentFilter !== 'none') {
+                grid.classList.add(currentFilter);
+            }
+
+            chunk.forEach(imgData => {
+                const imgCont = document.createElement('div');
+                imgCont.className = 'img-container';
+                
+                const imgEl = document.createElement('img');
+                imgEl.src = imgData.src;
+                // Apply CSS rotation
+                imgEl.className = `rotate-${imgData.rotation}`;
+
+                imgCont.appendChild(imgEl);
+                grid.appendChild(imgCont);
+            });
+            
+            // Fill empty cells to maintain grid structure if chunk is less than layout
+            const emptyCellsNeeded = currentLayout - chunk.length;
+            for(let i=0; i<emptyCellsNeeded; i++) {
+                 const emptyCont = document.createElement('div');
+                 emptyCont.className = 'img-container';
+                 grid.appendChild(emptyCont);
+            }
+
+            page.appendChild(grid);
+            
+            // --- PAGE NUMBER (Optional but standard for SAT) ---
+            const pageNum = document.createElement('div');
+            pageNum.className = 'page-meta font-bold';
+            pageNum.style.bottom = '30px'; // Absolute pixels
+            pageNum.style.right = '60px';  // Absolute pixels
+            pageNum.textContent = `${pageIndex + 1}`;
+            page.appendChild(pageNum);
+
+            return page;
+        }
+
+        /**
+         * RENDER PREVIEW TO WORKSPACE
+         */
         function renderPreview() {
-            // Remove existing page elements
-            const existingPages = document.querySelectorAll('.page-preview');
-            existingPages.forEach(p => p.remove());
+            // Clear current workspace
+            workspaceContainer.innerHTML = '';
 
             if (images.length === 0) {
+                workspaceContainer.appendChild(emptyState);
                 emptyState.style.display = 'block';
                 return;
             }
 
-            emptyState.style.display = 'none';
-
-            // Split images into chunk lists according to chosen layout
+            // Split images into chunks based on layout
             const chunks = [];
             for (let i = 0; i < images.length; i += currentLayout) {
                 chunks.push(images.slice(i, i + currentLayout));
             }
 
+            // Build and append visual pages
             chunks.forEach((chunk, pageIndex) => {
-                const page = document.createElement('div');
-                page.className = 'page-preview';
-                page.style.backgroundColor = pageBgColor;
-                page.id = `pdf-page-${pageIndex}`;
-
-                // A) Header Text
-                if (headerText.trim() !== '') {
-                    const header = document.createElement('div');
-                    header.className = 'page-meta page-header-text flex justify-between items-center';
-                    header.innerHTML = `<span>${headerText}</span><span>${new Date().toLocaleDateString('uz-UZ')}</span>`;
-                    page.appendChild(header);
-                }
-
-                // B) Footer Text
-                if (footerText.trim() !== '') {
-                    const footer = document.createElement('div');
-                    footer.className = 'page-meta page-footer-text';
-                    footer.textContent = footerText;
-                    page.appendChild(footer);
-                }
-
-                // C) Page Numbers
-                if (showPageNumbers) {
-                    const pageNum = document.createElement('div');
-                    pageNum.className = 'page-meta font-bold';
-                    pageNum.style.bottom = '8mm';
-                    pageNum.style.right = '15mm';
-                    pageNum.textContent = `Page ${pageIndex + 1} of ${chunks.length}`;
-                    page.appendChild(pageNum);
-                }
-
-                // D) Build Watermark Overlay (Standard Single or Grid Tile)
-                const watermarkOverlay = document.createElement('div');
-                watermarkOverlay.className = 'watermark-overlay';
-                
-                const hexColor = watermarkSettings.color;
-                const r = parseInt(hexColor.slice(1, 3), 16);
-                const g = parseInt(hexColor.slice(3, 5), 16);
-                const b = parseInt(hexColor.slice(5, 7), 16);
-                const rgbaColor = `rgba(${r}, ${g}, ${b}, ${watermarkSettings.opacity})`;
-
-                if (watermarkSettings.mode === 'single') {
-                    const singleWm = document.createElement('div');
-                    singleWm.className = 'watermark-single';
-                    singleWm.textContent = watermarkSettings.text;
-                    singleWm.style.fontSize = `${watermarkSettings.size * 2}px`;
-                    singleWm.style.color = rgbaColor;
-                    singleWm.style.transform = `rotate(${watermarkSettings.rotate}deg)`;
-                    watermarkOverlay.appendChild(singleWm);
-                } else {
-                    // Grid / Tile
-                    const tileGrid = document.createElement('div');
-                    tileGrid.className = 'watermark-tiled';
-                    
-                    // Render 12 grid blocks for coverage
-                    for (let t = 0; t < 12; t++) {
-                        const tileItem = document.createElement('div');
-                        tileItem.className = 'watermark-tile-item';
-                        tileItem.textContent = watermarkSettings.text;
-                        tileItem.style.fontSize = `${watermarkSettings.size}px`;
-                        tileItem.style.color = rgbaColor;
-                        tileItem.style.transform = `rotate(${watermarkSettings.rotate}deg)`;
-                        tileGrid.appendChild(tileItem);
-                    }
-                    watermarkOverlay.appendChild(tileGrid);
-                }
-                page.appendChild(watermarkOverlay);
-
-                // E) Content Grid System
-                const grid = document.createElement('div');
-                grid.className = `content-grid grid-${currentLayout} ${pageMargin} ${fitMode}`;
-                
-                // Set specific styling inside grid
-                if (currentFilter !== 'none') {
-                    grid.classList.add(currentFilter);
-                }
-
-                chunk.forEach(imgData => {
-                    const imgCont = document.createElement('div');
-                    imgCont.className = 'img-container';
-                    
-                    const imgEl = document.createElement('img');
-                    imgEl.src = imgData.src;
-                    
-                    // Apply individual rotation class
-                    imgEl.className = `rotate-${imgData.rotation}`;
-
-                    imgCont.appendChild(imgEl);
-                    grid.appendChild(imgCont);
-                });
-
-                page.appendChild(grid);
-                workspaceContainer.appendChild(page);
+                const pageElement = createPageElement(chunk, pageIndex, chunks.length);
+                workspaceContainer.appendChild(pageElement);
             });
 
-            // Re-apply workspace scale Zoom
+            // Ensure scale is correct after re-render
             applyZoom();
         }
 
-        // High Quality PDF Compiler
+
+        /**
+         * THE CORE FIX: OFF-SCREEN CLONED PDF GENERATION
+         * This isolates the render process from the UI scale, ensuring perfect 
+         * 794x1123px capture regardless of user's zoom or window size.
+         */
         async function generatePDF() {
             if (images.length === 0) return;
 
+            // UI Feedback
             const overlay = document.getElementById('loading-overlay');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
+            progressBar.style.width = '0%';
+            progressText.textContent = "Tayyorgarlik ko'rilmoqda...";
 
             try {
+                // Initialize jsPDF specifically for standard A4
                 window.jsPDF = window.jspdf.jsPDF;
-                
-                // Create clean PDF in landscape or portrait (Portrait/A4 used here)
                 const pdf = new jsPDF({
-                    orientation: 'p',
-                    unit: 'mm',
-                    format: 'a4',
+                    orientation: 'portrait',
+                    unit: 'px', // Crucial: use pixels to match our strict canvas
+                    format: [794, 1123], // Exact pixel mapping to physical A4 at 96dpi
                     compress: true
                 });
                 
-                const pages = document.querySelectorAll('.page-preview');
-                
-                for (let i = 0; i < pages.length; i++) {
-                    const pageEl = pages[i];
+                // Chunk data
+                const chunks = [];
+                for (let i = 0; i < images.length; i += currentLayout) {
+                    chunks.push(images.slice(i, i + currentLayout));
+                }
+
+                // Render each page through the off-screen container
+                for (let i = 0; i < chunks.length; i++) {
                     
-                    // Temporarily normalize workspace scale back to 100% for clear capture
-                    const tempScale = workspaceContainer.style.transform;
-                    workspaceContainer.style.transform = 'scale(1)';
+                    progressText.textContent = `Sahifa ${i + 1} / ${chunks.length} chizilmoqda...`;
+                    progressBar.style.width = `${((i) / chunks.length) * 100}%`;
                     
-                    // Render to canvas
-                    const canvas = await html2canvas(pageEl, {
-                        scale: 2.2, // 2.2x scale provides exceptional clarity without massive file size
+                    // 1. Create a fresh, un-scaled DOM node for this page
+                    const cleanPageNode = createPageElement(chunks[i], i, chunks.length);
+                    
+                    // 2. Insert into the hidden render container (where scale is naturally 1)
+                    renderContainer.innerHTML = '';
+                    renderContainer.appendChild(cleanPageNode);
+
+                    // 3. Small pause to ensure DOM paints and images are ready inside the hidden div
+                    await new Promise(r => setTimeout(r, 50)); 
+
+                    // 4. Capture via html2canvas targeting the CLEAN node
+                    const canvas = await html2canvas(cleanPageNode, {
+                        scale: 2, // 2x scale for HD retina-like sharpness in the resulting image
                         useCORS: true,
                         logging: false,
                         backgroundColor: pageBgColor,
-                        allowTaint: true
+                        allowTaint: true,
+                        // Fix for weird font shifts in canvas
+                        onclone: function(clonedDoc) {
+                           clonedDoc.getElementById('render-container').style.visibility = 'visible';
+                        }
                     });
-                    
-                    // Restore zoom state back to user setting
-                    workspaceContainer.style.transform = tempScale;
 
-                    const imgData = canvas.toDataURL('image/jpeg', 0.90);
+                    // 5. Convert to High-Quality JPEG to keep PDF size reasonable
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
                     
+                    // 6. Add to PDF
                     if (i > 0) {
-                        pdf.addPage();
+                        pdf.addPage([794, 1123], 'portrait');
                     }
                     
-                    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+                    // Map the image exactly to the PDF bounds
+                    pdf.addImage(imgData, 'JPEG', 0, 0, 794, 1123, undefined, 'FAST');
                 }
 
+                // Finalize UI
+                progressBar.style.width = '100%';
+                progressText.textContent = "Fayl saqlanmoqda...";
+                await new Promise(r => setTimeout(r, 200)); 
+
+                // Download
                 const timestamp = new Date().toISOString().slice(0, 10);
-                const formattedName = `SAT_Material_${timestamp}.pdf`;
-                pdf.save(formattedName);
+                pdf.save(`SAT_Material_${timestamp}.pdf`);
 
             } catch (error) {
-                console.error("PDF yaratishda xatolik yuz berdi:", error);
-                alert("PDF faylini tayyorlash jarayonida xatolik yuz berdi. Iltimos qayta urinib ko'ring.");
+                console.error("PDF yaratishda xatolik:", error);
+                alert("Kechirasiz, xatolik yuz berdi. Iltimos sahifani yangilab qayta urinib ko'ring.");
             } finally {
+                // Cleanup
+                renderContainer.innerHTML = '';
                 overlay.classList.add('hidden');
                 overlay.classList.remove('flex');
             }
         }
+        
+        // Initial setup calls
+        applyZoom();
     </script>
 </body>
 </html>
